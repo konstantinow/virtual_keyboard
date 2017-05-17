@@ -85,7 +85,7 @@ begin
 -- [I][frequency_divider]
     inst_freq_divider_12_5KHz: frequency_divider 
     -- TODO: replace 2 to 4000.
-    generic map(div => 2) -- Нужная частота - каждые 25мкс устанавливать фронт. Тогда frequency = 12.5KHz. Тогда clk_main(50MHz) нужно поделить на 0.0125MHz = 4000.
+    generic map(div => 4000) -- Нужная частота - каждые 25мкс устанавливать фронт. Тогда frequency = 12.5KHz. Тогда clk_main(50MHz) нужно поделить на 0.0125MHz = 4000.
     port map (
                  clk => clk_main,
                  clk_o => s_ps2_clk_in_0_0125MHz
@@ -118,8 +118,8 @@ begin
                 s_t_data_length_in <= to_integer(unsigned(data_length_in));
                 s_t_run_transmitting <= '1';
             end if;
-        end if;
         s_t_prev_new_data_in <= new_data_in;
+        end if;
     end process;
 -- [--/--]
 
@@ -146,8 +146,9 @@ begin
         then
             s_t_end_transmitting <= '0'; -- Default value
             s_ps2_new_byte_in <= '0'; -- Default value
+            s_t_ps2_readed_byte <= '1'; -- Default value
 
-            if s_host_state = transmitting and s_ps2_busy_o = '0' and s_t_ps2_readed_byte = '1'
+            if s_host_state = transmitting and s_ps2_busy_o = '0' and s_t_ps2_readed_byte = '1' and s_t_end_transmitting = '0'
             then
                 if s_t_index_data < s_t_data_length_in
                 then
