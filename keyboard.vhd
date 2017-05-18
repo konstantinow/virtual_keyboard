@@ -255,9 +255,9 @@ begin
 -- [--/--]
 
 -- [P][clk_main_in][GENERATOR - 0.0125MHz]
-    process(clk_main_in)
+    process(clk_main)
     begin
-        if rising_edge(clk_main_in)
+        if rising_edge(clk_main)
         then
             if s_divider_count = DIVIDER_DIV - 1
             then

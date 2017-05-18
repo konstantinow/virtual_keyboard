@@ -65,7 +65,7 @@ architecture Behavioral of PS2_DEVICE is
     signal s_t_prev_new_byte_in         : std_logic                 := '0';
     signal s_t_run_transmitting         : std_logic                 := '0';
     signal s_t_end_transmitting         : std_logic                 := '0';
-    signal s_t_current_bit              : std_logic                 := 'Z';
+    signal s_t_current_bit              : std_logic;
     signal s_t_need_generate_ps2_clk    : std_logic                 := '0';
     signal s_t_byte                     : std_logic_vector(7 downto 0);
     signal s_t_count_transmitted_bit    : natural range 0 to 7      := 0;
@@ -74,6 +74,7 @@ architecture Behavioral of PS2_DEVICE is
 -- [S][RECEIVER]
     signal s_r_prev_ps2_clk             : std_logic := 'Z';
     signal s_r_clk_0_04MHz              : std_logic := '0';
+    signal s_r_prev_clk_0_04MHz         : std_logic := '0';
     signal s_r_run_receiving            : std_logic := '0';
     signal s_r_end_receiving            : std_logic := '0';
     signal s_r_current_bit              : std_logic := 'Z';
@@ -108,37 +109,43 @@ begin
 -- [--/--]
 
 -- [P][clk_main_in][Detect receiving "Device <- Host"]
-    process(s_r_clk_0_04MHz, s_ps2_state)
+    process(clk_main_in)
     begin
-        if rising_edge(s_r_clk_0_04MHz)
+        if rising_edge(clk_main_in)
         then
-            if ps2_clk = '0'
+            if s_r_clk_0_04MHz /= s_r_prev_clk_0_04MHz and s_r_clk_0_04MHz = '1'
             then
-                if s_r_count_tick = 4 and s_ps2_state = idle
+                if ps2_clk = '0'
                 then
-                    s_r_run_receiving <= '1';
-                    s_r_count_tick <= 0;
-                elsif s_r_count_tick < 4 and s_ps2_state = idle
-                then
-                    s_r_count_tick <= s_r_count_tick + 1;
-                end if;
+                    if s_r_count_tick = 4 and s_ps2_state = idle
+                    then
+                        s_r_run_receiving <= '1';
+                        s_r_count_tick <= 0;
+                    elsif s_r_count_tick < 4 and s_ps2_state = idle
+                    then
+                        s_r_count_tick <= s_r_count_tick + 1;
+                    end if;
 
-                if s_ps2_state /= idle
-                then
-                    s_r_count_tick <= 0;
-                end if;
+                    if s_ps2_state /= idle
+                    then
+                        s_r_count_tick <= 0;
+                    end if;
 
+                end if;
             end if;
-        end if;
-        if s_ps2_state = receiving
-        then
-            s_r_run_receiving <= '0'; --reset
+
+            if s_ps2_state = receiving
+            then
+                s_r_run_receiving <= '0'; --reset
+            end if;
+
+            s_r_prev_clk_0_04MHz <= s_r_clk_0_04MHz;
         end if;
     end process;
 -- [--/--]
 
 -- [P][clk_main_in][Set ps2 state and ps2_data]
-    process(clk_main_in, s_ps2_state, s_r_current_bit, s_t_current_bit)
+    process(clk_main_in, s_ps2_state)
     begin
         if rising_edge(clk_main_in)
         then
@@ -155,13 +162,28 @@ begin
             then
                 s_ps2_state <= idle;
             end if;
+
         end if;
 
         case s_ps2_state is
             when receiving =>
                 ps2_data <= s_r_current_bit;
             when transmitting =>
-                ps2_data <= s_t_current_bit;
+                if s_t_current_bit = '0'
+                then
+                    test3 <= '1';
+                end if;
+                if ps2_data = '0'
+                then
+                    test4 <= '1';
+                end if;
+
+                if s_t_current_bit = '1'
+                then
+                    ps2_data <= 'Z';
+                else
+                    ps2_data <= '0';
+                end if;
             when idle =>
                 ps2_data <= 'Z';
         end case;
@@ -169,46 +191,51 @@ begin
     end process;
 -- [--/--]
 
--- [P][clk_main_in, ps2_clk_in][Transmitting]
-    process(clk_main_in, ps2_clk_in)
+-- [P][clk_main_in][Transmitting]
+    process(clk_main_in)
     begin
-        if (s_prev_ps2_clk_in /= ps2_clk_in and ps2_clk_in = '1') and s_ps2_state = transmitting
+        if rising_edge(clk_main_in)
         then
-            s_t_end_transmitting <= '0'; -- Default value
+            if (s_prev_ps2_clk_in /= ps2_clk_in and ps2_clk_in = '1') and s_ps2_state = transmitting
+            then
+                s_t_end_transmitting <= '0'; -- Default value
 
-            case s_transmitting_state is
-                when idle =>
-                    s_transmitting_state <= t_start_bit;
-                    s_t_need_generate_ps2_clk <= '1';
-                    s_t_current_bit <= 'Z';
-                when t_start_bit =>
-                    s_t_current_bit <= '0';
-                    s_transmitting_state <= t_send_bits;
-                when t_send_bits =>
-                    if (s_t_count_transmitted_bit < 8)
-                    then
-                        s_t_current_bit <= s_t_byte(s_t_count_transmitted_bit);
-                        s_t_count_transmitted_bit <= s_t_count_transmitted_bit + 1;
-                    else
-                        s_t_count_transmitted_bit <= 0;
-                        s_t_current_bit <= not(s_t_byte(0) xor s_t_byte(1) xor s_t_byte(2) xor s_t_byte(3) xor s_t_byte(4) xor s_t_byte(5) xor s_t_byte(6) xor s_t_byte(7));
-                        s_transmitting_state <= t_stop_bit;
-                    end if;
-                when t_stop_bit =>
-                    s_t_current_bit <= '1';
-                    s_transmitting_state <= t_send_ended;
-                    s_t_need_generate_ps2_clk <= '0';
-                when t_send_ended =>
-                    s_t_current_bit <= 'Z';
-                    s_transmitting_state <= idle;
-                    s_t_end_transmitting <= '1';
-            end case;
+                case s_transmitting_state is
+                    when idle =>
+                        s_transmitting_state <= t_start_bit;
+                        s_t_need_generate_ps2_clk <= '1';
+                        s_t_current_bit <= '1';
+                    when t_start_bit =>
+                        test1 <= '1';
+                        s_t_current_bit <= '0';
+                        s_transmitting_state <= t_send_bits;
+                    when t_send_bits =>
+                        if (s_t_count_transmitted_bit < 8)
+                        then
+                            s_t_current_bit <= s_t_byte(s_t_count_transmitted_bit);
+                            s_t_count_transmitted_bit <= s_t_count_transmitted_bit + 1;
+                            test2 <= '1';
+                        else
+                            s_t_count_transmitted_bit <= 0;
+                            s_t_current_bit <= not(s_t_byte(0) xor s_t_byte(1) xor s_t_byte(2) xor s_t_byte(3) xor s_t_byte(4) xor s_t_byte(5) xor s_t_byte(6) xor s_t_byte(7));
+                            s_transmitting_state <= t_stop_bit;
+                        end if;
+                    when t_stop_bit =>
+                        s_t_current_bit <= '1';
+                        s_transmitting_state <= t_send_ended;
+                        s_t_need_generate_ps2_clk <= '0';
+                    when t_send_ended =>
+                        s_t_current_bit <= '1';
+                        s_transmitting_state <= idle;
+                        s_t_end_transmitting <= '1';
+                end case;
+            end if;
         end if;
     end process;
 -- [--/--]
 
--- [P][clk_main_in, ps2_clk][Receiving. Set s_r_data]
-    process(clk_main_in, ps2_clk)
+-- [P][clk_main_in][Receiving. Set s_r_data]
+    process(clk_main_in)
     begin
         if rising_edge(clk_main_in)
         then
@@ -227,7 +254,6 @@ begin
                         s_r_need_generate_ps2_clk <= '1';
                         if ps2_clk /= s_r_prev_ps2_clk and ps2_clk = '0' -- falling_edge
                         then
-                            test3 <= '1';
                             if s_r_count_received_bit < 11
                             then
                                 s_r_data(s_r_count_received_bit) <= ps2_data;
@@ -235,7 +261,6 @@ begin
                             end if;
                         elsif (ps2_clk /= s_r_prev_ps2_clk and ps2_clk = '1') and s_r_count_received_bit = 11
                         then
-                            test4 <= '1';
                             if (s_r_data(0) = '0' and
                                 s_r_data(10) = '1' and
                                 s_r_data(9) = not(s_r_data(1) xor s_r_data(2) xor s_r_data(3) xor s_r_data(4) xor s_r_data(5) xor s_r_data(6) xor s_r_data(7) xor s_r_data(8)))
@@ -246,7 +271,6 @@ begin
                             s_r_need_generate_ps2_clk <= '0';
                             s_receiving_state <= r_receive_ended;
                         end if;
-                        s_r_prev_ps2_clk <= ps2_clk;
                     when r_receive_ended =>
                         if ps2_clk /= s_prev_ps2_clk_in and ps2_clk /= '0' --(not falling_edge) Set data in state 'Z' when clk will be 'Z'.
                         then
@@ -258,34 +282,33 @@ begin
                         end if;
                 end case;
             end if;
+            s_r_prev_ps2_clk <= ps2_clk;
         end if;
     end process;
 -- [--/--]
 
--- [P][clk_main_in, ps2_clk_in][Receiving. Generate ps2_clk]
-    process(clk_main_in, ps2_clk_in)
+-- [P][clk_main_in][Receiving. Generate ps2_clk]
+    process(clk_main_in)
     begin
-        if ps2_clk_in /= s_prev_ps2_clk_in and ps2_clk_in = '0'
-        then
-            test1 <= '1';
-            if (s_r_need_generate_ps2_clk = '1' or s_t_need_generate_ps2_clk = '1')
-            then
-                s_need_generate_ps2_clk <= '1';
-            else
-                s_need_generate_ps2_clk <= '0';
-            end if;
-        end if;
-
-        if s_need_generate_ps2_clk = '1'
-        then
-            test2 <= '1';
-            ps2_clk <= ps2_clk_in;
-        else
-            ps2_clk <= 'Z';
-        end if;
-
         if rising_edge(clk_main_in)
         then
+            if ps2_clk_in /= s_prev_ps2_clk_in and ps2_clk_in = '1'
+            then
+                if (s_r_need_generate_ps2_clk = '1' or s_t_need_generate_ps2_clk = '1')
+                then
+                    s_need_generate_ps2_clk <= '1';
+                else
+                    s_need_generate_ps2_clk <= '0';
+                end if;
+            end if;
+
+            if s_need_generate_ps2_clk = '1'
+            then
+                ps2_clk <= ps2_clk_in;
+            else
+                ps2_clk <= 'Z';
+            end if;
+
             s_prev_ps2_clk_in <= ps2_clk_in;
         end if;
     end process;

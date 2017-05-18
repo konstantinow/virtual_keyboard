@@ -2,9 +2,9 @@
 -- Company: 
 -- Engineer: 
 -- 
--- Create Date:    13:32:07 05/04/2017 
+-- Create Date:    07:49:38 05/18/2017 
 -- Design Name: 
--- Module Name:    top - Behavioral 
+-- Module Name:    top_host_receive - Behavioral 
 -- Project Name: 
 -- Target Devices: 
 -- Tool versions: 
@@ -29,15 +29,15 @@ use IEEE.STD_LOGIC_1164.ALL;
 --library UNISIM;
 --use UNISIM.VComponents.all;
 
-entity top is
+entity top_host_receive is
     port(
             CLK_MAIN    : in std_logic;
             CLK_MAIN_O  : out std_logic;
             LED         : out std_logic_vector(7 downto 0)
         );
-end top;
+end top_host_receive;
 
-architecture Behavioral of top is
+architecture Behavioral of top_host_receive is
 
 -- [C][PS2_DEVICE]
     COMPONENT PS2_DEVICE
@@ -188,18 +188,18 @@ begin
         then
             case s_internal_state is
                 when h_strobe_1 =>
-                    h_byte_in <= "10010100";
-                    h_new_byte_in <= '1';
+                    d_byte_in <= "00010100";
+                    d_new_byte_in <= '1';
                     s_internal_state <= h_strobe_11;
                 when h_strobe_11 =>
                     s_internal_state <= h_strobe_0;
                 when h_strobe_0 =>
-                    h_new_byte_in <= '0';
+                    d_new_byte_in <= '0';
                     s_internal_state <= d_waiting_new_byte;
                 when d_waiting_new_byte =>
-                    if (d_new_byte_o = '1')
+                    if (h_new_byte_o = '1')
                     then
-                        s_leds <= d_byte_o;
+                        s_leds <= h_byte_o;
                     end if;
             end case;
 
@@ -242,7 +242,7 @@ begin
 
             if h_test4 = '1'
             then
-                h_led0 <= '1';
+                h_led0 <= '0';
             end if;
             --------------------------------
 
