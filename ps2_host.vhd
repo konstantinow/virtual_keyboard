@@ -96,20 +96,23 @@ begin
                     elsif ps2_clk /= s_t_prev_ps2_clk and ps2_clk = '0' -- falling_edge
                     then
                         busy_o <= '1';
-                        if d_counter = 11
+
+                        if d_counter < 11
                         then
-                            busy_o <= '0';
-                            new_byte_o <= '1';
-                            -- byte_o <= "00001111";
-                            byte_o <= s_r_data(9 downto 2);
-                            d_counter <= 0;
-                        else
                             s_r_data(d_counter) <= ps2_data;
                             d_counter <= d_counter + 1;
                         end if;
                         --s_r_data(s_r_index_bit) <= ps2_data;
                         --s_r_index_bit <= s_r_index_bit + 1;
                         --s_state <= r_receive_bits;
+                    end if;
+
+                    if d_counter = 11
+                    then
+                        busy_o <= '0';
+                        new_byte_o <= '1';
+                        byte_o <= s_r_data(8 downto 1);
+                        d_counter <= 0;
                     end if;
 
                 -- [TRANSMITTING]

@@ -53,6 +53,7 @@ architecture Behavioral of PS2_DEVICE is
 
 -- [S][Internal signals]
     signal s_prev_ps2_clk_in            : std_logic                 := '0';
+    signal s_ps2_clk_buf                : std_logic                 := '1';
     signal s_need_generate_ps2_clk      : std_logic                 := '0';
     signal s_ps2_state                  : type_ps2_state            := idle;
     signal s_transmitting_state         : type_transmitting_state   := idle;
@@ -68,7 +69,7 @@ architecture Behavioral of PS2_DEVICE is
     signal s_t_current_bit              : std_logic                 := 'Z';
     signal s_t_need_generate_ps2_clk    : std_logic                 := '0';
     signal s_t_byte                     : std_logic_vector(7 downto 0);
-    signal s_t_count_transmitted_bit    : natural range 0 to 7      := 0;
+    signal s_t_count_transmitted_bit    : natural range 0 to 8      := 0;
 -- [--/--]
 
 -- [S][RECEIVER]
@@ -297,9 +298,9 @@ begin
 
             if s_need_generate_ps2_clk = '1'
             then
-                ps2_clk <= ps2_clk_in;
+                s_ps2_clk_buf <= ps2_clk_in;
             else
-                ps2_clk <= 'Z';
+                s_ps2_clk_buf <= '1';
             end if;
 
             s_prev_ps2_clk_in <= ps2_clk_in;
@@ -322,6 +323,7 @@ begin
     end process;
 -- [--/--]
 
+    ps2_clk <= 'Z' when s_ps2_clk_buf = '1' else '0';
     s_r_clk_0_04MHz <= '1' when s_divider_count < DIVIDER_DIV/2 else '0';
 
     busy_o <= '0' when (s_ps2_state = idle) else '1';

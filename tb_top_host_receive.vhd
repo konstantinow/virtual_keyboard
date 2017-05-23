@@ -43,7 +43,12 @@ ARCHITECTURE behavior OF tb_top_host_receive IS
     PORT(
          CLK_MAIN : IN  std_logic;
          CLK_MAIN_O : OUT  std_logic;
-         LED : OUT  std_logic_vector(7 downto 0)
+         LED : OUT  std_logic_vector(7 downto 0);
+         d_ps2_clk : OUT std_logic;
+         d_ps2_data : OUT std_logic;
+         d_d_new_byte_in : out std_logic;
+         d_h_busy_o      : out std_logic;
+         BTN_SOUTH : in std_logic
         );
     END COMPONENT;
     
@@ -65,7 +70,12 @@ BEGIN
    uut: top_host_receive PORT MAP (
           CLK_MAIN => CLK_MAIN,
           CLK_MAIN_O => CLK_MAIN_O,
-          LED => LED
+          LED => LED,
+          d_ps2_clk => open,
+          d_ps2_data => open,
+         d_d_new_byte_in => open,
+         d_h_busy_o => open,
+         BTN_SOUTH => '0'
         );
 
    -- Clock process definitions

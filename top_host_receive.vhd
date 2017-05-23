@@ -31,9 +31,15 @@ use IEEE.STD_LOGIC_1164.ALL;
 
 entity top_host_receive is
     port(
-            CLK_MAIN    : in std_logic;
-            CLK_MAIN_O  : out std_logic;
-            LED         : out std_logic_vector(7 downto 0)
+            CLK_MAIN        : in std_logic;
+            CLK_MAIN_O      : out std_logic;
+            LED             : out std_logic_vector(7 downto 0);
+            d_ps2_clk       : out std_logic;
+            d_ps2_data      : out std_logic;
+            d_d_new_byte_in : out std_logic;
+            d_h_busy_o      : out std_logic;
+            BTN_SOUTH        : in std_logic
+            
         );
 end top_host_receive;
 
@@ -129,10 +135,7 @@ architecture Behavioral of top_host_receive is
         h_strobe_1,
         h_strobe_11,
         h_strobe_0,
-        d_waiting_new_byte,
-        h_strobe_111,
-        h_strobe_00,
-        d_waiting_new_byte1
+        d_waiting_new_byte
     );
 -- [--/--]
 
@@ -142,7 +145,16 @@ architecture Behavioral of top_host_receive is
     signal s_leds               : std_logic_vector(7 downto 0)  := "10101010";
     signal s_ps2_clk_in         : std_logic                     := '0';
     signal s_divider_count      : natural range 0 to 4000       := 0;
--- [S][Internal signals]
+    signal s_data               : std_logic_vector(7 downto 0)  := "00011011";
+-- [--/--]
+
+-- [S][BUTTON]
+    signal s_btn_rising_edge    : std_logic                     := '0';
+    signal s_btn_prev_btn_south : std_logic                     := '0';
+    signal s_btn_count          : natural range 0 to 500000     := 0;
+    signal s_btn_begin_inc      : std_logic                     := '0';
+-- [--/--]
+    signal s_counter              : natural range 0 to 50000000   := 0;
 
     constant DIVIDER_DIV    : natural range 0 to 4000   := 4000;
 
@@ -184,6 +196,41 @@ begin
                                 );
 -- [--/--]
 
+-- [P][Generate btn_rising_edge]
+    process(CLK_MAIN)
+    begin
+        if rising_edge(CLK_MAIN)
+        then
+            s_btn_rising_edge <= '0';
+
+            if s_btn_prev_btn_south /= BTN_SOUTH and BTN_SOUTH = '1'
+            then
+                s_btn_begin_inc <= '1';
+            end if;
+
+            if s_btn_begin_inc = '1'
+            then
+                if BTN_SOUTH = '1'
+                then
+                    if s_btn_count < 500000
+                    then
+                        s_btn_count <= s_btn_count + 1;
+                    else
+                        s_btn_rising_edge <= '1';
+                        s_btn_count <= 0;
+                        s_btn_begin_inc <= '0';
+                    end if;
+                else
+                    s_btn_begin_inc <= '0';
+                    s_btn_count <= 0;
+                end if;
+            end if;
+
+            s_btn_prev_btn_south <= BTN_SOUTH;
+        end if;
+    end process;
+-- [--/--]
+
 -- [P][General]
     process(CLK_MAIN)
     begin
@@ -191,7 +238,7 @@ begin
         then
             case s_internal_state is
                 when h_strobe_1 =>
-                    d_byte_in <= "00010001"; -- 11000100010
+                    d_byte_in <= s_data;
                     d_new_byte_in <= '1';
                     s_internal_state <= h_strobe_11;
                 when h_strobe_11 =>
@@ -203,70 +250,21 @@ begin
                     if (h_new_byte_o = '1')
                     then
                         s_leds <= h_byte_o;
-                        if d_busy_o = '0'
-                        then
-                            s_internal_state <= h_strobe_111;
-                        end if;
                     end if;
-                when h_strobe_111 =>
-                    d_byte_in <= "10000001";
-                    d_new_byte_in <= '1';
-                    s_internal_state <= h_strobe_11;
-                when h_strobe_00 =>
-                    s_internal_state <= d_waiting_new_byte1;
-                when d_waiting_new_byte1 =>
-                    d_new_byte_in <= '0';
-                    if (h_new_byte_o = '1')
+
+                    if s_counter < 200000
                     then
-                        s_leds <= h_byte_o;
+                        s_counter <= s_counter + 1;
+                    else
+                        s_counter <= 0;
+                        s_internal_state <= h_strobe_1;
+                    end if;
+
+                    if s_btn_rising_edge = '1'
+                    then
+                        s_data <= s_data xor "00001111";
                     end if;
             end case;
-
-            --------------------------------
-            if d_test1 = '1'
-            then
-                d_led7 <= '1';
-            end if;
-
-            if d_test2 = '1'
-            then
-                d_led6 <= '1';
-            end if;
-
-
-            if d_test3 = '1'
-            then
-                d_led5 <= '1';
-            end if;
-
-
-            if d_test4 = '1'
-            then
-                d_led4 <= '1';
-            end if;
-            --------------------------------
-
-            --------------------------------
-            if h_test1 = '1'
-            then
-                h_led3 <= '1';
-            end if;
-
-            if h_test2 = '1'
-            then
-                h_led2 <= '1';
-            end if;
-
-            if h_test3 = '1'
-            then
-                h_led1 <= '1';
-            end if;
-
-            if h_test4 = '1'
-            then
-                h_led0 <= '1';
-            end if;
-            --------------------------------
 
             -- LED <= h_led0 & h_led1 & h_led2 & h_led3 & "0000";
             -- LED <= h_led0 & h_led1 & h_led2 & h_led3 & d_led4 & d_led5 & d_led6 & d_led7;
@@ -291,6 +289,11 @@ begin
 -- [--/--]
 
     s_ps2_clk_in <= '1' when s_divider_count < DIVIDER_DIV/2 else '0';
+
+    d_ps2_clk <= ps2_clk;
+    d_ps2_data <= ps2_data;
+    d_d_new_byte_in <= d_new_byte_in;
+    d_h_busy_o <= h_busy_o;
 
     CLK_MAIN_O <= CLK_MAIN;
 
