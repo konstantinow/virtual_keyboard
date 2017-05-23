@@ -57,6 +57,18 @@ architecture Behavioral of PS2_HOST is
     signal s_r_index_bit                : natural range 0 to 11 := 0;
 -- [--/--]
 
+-- [S][RECEIVER]
+    signal d_counter                    : natural range 0 to 12 := 0;
+    signal d_data0                      : std_logic             := '0';
+    signal d_data1                      : std_logic             := '0';
+    signal d_data2                      : std_logic             := '0';
+    signal d_data3                      : std_logic             := '0';
+    signal d_data4                      : std_logic             := '0';
+    signal d_data5                      : std_logic             := '0';
+    signal d_data6                      : std_logic             := '0';
+    signal d_data7                      : std_logic             := '0';
+-- [--/--]
+
 begin
 
 -- [P][ps2_clk][Transmitting "Host -> Device". Set ps2_data]
@@ -64,16 +76,18 @@ begin
     begin
         if rising_edge(clk_main_in)
         then
-            if ps2_data = '0'
-            then
-                test3 <= '1';
-            end if;
             new_byte_o <= '0';
             case s_state is
                 when idle =>
-                    s_t_current_bit <= '1';
+                    --s_r_index_bit <= 0; -- Default value
+                    --s_r_data <= x"00" & "000"; -- Default value
+
+                    s_t_current_bit <= 'Z';
+
+                    busy_o <= '0';
                     if s_t_prev_new_byte_in /= new_byte_in and new_byte_in = '1'
                     then
+                        busy_o <= '1';
                         s_t_data(0) <= '0';
                         s_t_data(8 downto 1) <= byte_in;
                         s_t_data(9) <= not(byte_in(0) xor byte_in(1) xor byte_in(2) xor byte_in(3) xor byte_in(4) xor byte_in(5) xor byte_in(6) xor byte_in(7));
@@ -81,11 +95,21 @@ begin
                         s_state <= t_waiting_free_line;
                     elsif ps2_clk /= s_t_prev_ps2_clk and ps2_clk = '0' -- falling_edge
                     then
-                        test1 <= '1'; 
-                        s_r_data(s_r_index_bit) <= ps2_data;
-                        s_r_index_bit <= s_r_index_bit + 1;
-                        s_state <= r_receive_bits;
-
+                        busy_o <= '1';
+                        if d_counter = 11
+                        then
+                            busy_o <= '0';
+                            new_byte_o <= '1';
+                            -- byte_o <= "00001111";
+                            byte_o <= s_r_data(9 downto 2);
+                            d_counter <= 0;
+                        else
+                            s_r_data(d_counter) <= ps2_data;
+                            d_counter <= d_counter + 1;
+                        end if;
+                        --s_r_data(s_r_index_bit) <= ps2_data;
+                        --s_r_index_bit <= s_r_index_bit + 1;
+                        --s_state <= r_receive_bits;
                     end if;
 
                 -- [TRANSMITTING]
@@ -123,7 +147,7 @@ begin
                         if ps2_clk /= s_t_prev_ps2_clk and ps2_clk = '1'
                         then
                             s_state <= t_waiting_ack;
-                            s_t_current_bit <= '1';
+                            s_t_current_bit <= 'Z';
                         end if;
                     when t_waiting_ack =>
                         if ps2_clk /= s_t_prev_ps2_clk
@@ -138,14 +162,106 @@ begin
                         then
                             if s_r_index_bit < 11
                             then
-                                --TODO:
+
                                 if ps2_data = '0'
                                 then
-                                    test4 <= '1';
+                                    s_r_data(s_r_index_bit) <= '0';
+                                else
+                                    s_r_data(s_r_index_bit) <= '1';
                                 end if;
 
-                                test2 <= '1';
-                                s_r_data(s_r_index_bit) <= ps2_data;
+                                if d_counter = 0
+                                then
+                                    if ps2_data = '0'
+                                    then
+                                        test1 <= '1';
+                                        d_data0 <= '0';
+                                    else
+                                        d_data0 <= '1';
+                                    end if;
+                                end if;
+
+
+                                if d_counter = 1
+                                then
+                                    if ps2_data = '0'
+                                    then
+                                        test2 <= '1';
+                                        d_data1 <= '0';
+                                    else
+                                        d_data1 <= '1';
+                                    end if;
+                                end if;
+
+
+                                if d_counter = 2
+                                then
+                                    if ps2_data = '0'
+                                    then
+                                        test3 <= '1';
+                                        d_data2 <= '0';
+                                    else
+                                        d_data2 <= '1';
+                                    end if;
+                                end if;
+
+
+                                if d_counter = 3
+                                then
+                                    if ps2_data = '0'
+                                    then
+                                        test4 <= '1';
+                                        d_data3 <= '0';
+                                    else
+                                        d_data3 <= '1';
+                                    end if;
+                                end if;
+
+
+                                if d_counter = 4
+                                then
+                                    if ps2_data = '0'
+                                    then
+                                        d_data4 <= '0';
+                                    else
+                                        d_data4 <= '1';
+                                    end if;
+                                end if;
+
+
+                                if d_counter = 5
+                                then
+                                    if ps2_data = '0'
+                                    then
+                                        d_data5 <= '0';
+                                    else
+                                        d_data5 <= '1';
+                                    end if;
+                                end if;
+
+
+                                if d_counter = 6
+                                then
+                                    if ps2_data = '0'
+                                    then
+                                        d_data6 <= '0';
+                                    else
+                                        d_data6 <= '1';
+                                    end if;
+                                end if;
+
+
+                                if d_counter = 7
+                                then
+                                    if ps2_data = '0'
+                                    then
+                                        d_data7 <= '0';
+                                    else
+                                        d_data7 <= '1';
+                                    end if;
+                                end if;
+
+                                d_counter <= d_counter + 1;
                                 s_r_index_bit <= s_r_index_bit + 1;
                             end if;
                         elsif s_r_index_bit = 11
@@ -155,8 +271,8 @@ begin
                         end if;
                     when r_end_receive =>
                         --TODO: need verification bits
-                        new_byte_o <= '1';
-                        byte_o <= s_r_data(8 downto 1);
+                        -- new_byte_o <= '1';
+                        -- byte_o <= d_data0 & d_data1 & d_data2 & d_data3 & d_data4 & d_data5 & d_data6 & d_data7;
                         s_state <= idle;
                 -- [--/--]
             end case;
@@ -167,7 +283,7 @@ begin
 -- [--/--]
 
     ps2_clk <= '0' when (s_state = t_pre_start_bit) else 'Z';
-    busy_o <= '0' when (s_state = idle) else '1';
-    ps2_data <= 'Z' when s_t_current_bit = '1' else '0';
+    ps2_data <= s_t_current_bit;
+    --ps2_data <= 'Z';
     
 end architecture Behavioral;

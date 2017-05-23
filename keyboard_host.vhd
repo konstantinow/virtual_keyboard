@@ -37,16 +37,6 @@ architecture Behavioral of KEYBOARD_HOST is
     END COMPONENT;
 -- [--/--]
 
--- [C][frequency_divider]
-    component frequency_divider
-        generic (div : natural range 0 to 10000);
-        port (
-                 clk    : in std_logic;
-                 clk_o  : out std_logic
-             );
-    end component;
--- [--/--]
-
 -- [T][host_state]
     type type_host_state is (
         idle,
@@ -80,17 +70,13 @@ architecture Behavioral of KEYBOARD_HOST is
     signal s_t_ps2_readed_byte  : std_logic                     := '1';
 -- [--/--]
 
-begin
-
--- [I][frequency_divider]
-    inst_freq_divider_12_5KHz: frequency_divider 
-    -- TODO: replace 2 to 4000.
-    generic map(div => 4000) -- Нужная частота - каждые 25мкс устанавливать фронт. Тогда frequency = 12.5KHz. Тогда clk_main(50MHz) нужно поделить на 0.0125MHz = 4000.
-    port map (
-                 clk => clk_main,
-                 clk_o => s_ps2_clk_in_0_0125MHz
-             );
+-- [S][Internal signals]
+    signal s_divider_count      : natural range 0 to 4000       := 0;
 -- [--/--]
+
+    constant DIVIDER_DIV        : natural range 0 to 4000       := 4000;
+
+begin
 
 -- [I][host]
     host: PS2_HOST PORT MAP (
@@ -165,6 +151,23 @@ begin
         s_ps2_prev_busy_o <= s_ps2_busy_o;
     end process;
 -- [--/--]
+
+-- [P][clk_main_in][GENERATOR - 0.0125MHz]
+    process(CLK_MAIN)
+    begin
+        if rising_edge(CLK_MAIN)
+        then
+            if s_divider_count = DIVIDER_DIV - 1
+            then
+                s_divider_count <= 0;
+            else
+                s_divider_count <= s_divider_count + 1;
+            end if;
+        end if;
+    end process;
+-- [--/--]
+
+    s_ps2_clk_in_0_0125MHz <= '1' when s_divider_count < DIVIDER_DIV/2 else '0';
 
     host_busy_o <= '0' when (s_host_state = idle) else '1';
 

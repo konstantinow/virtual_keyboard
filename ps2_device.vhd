@@ -65,7 +65,7 @@ architecture Behavioral of PS2_DEVICE is
     signal s_t_prev_new_byte_in         : std_logic                 := '0';
     signal s_t_run_transmitting         : std_logic                 := '0';
     signal s_t_end_transmitting         : std_logic                 := '0';
-    signal s_t_current_bit              : std_logic;
+    signal s_t_current_bit              : std_logic                 := 'Z';
     signal s_t_need_generate_ps2_clk    : std_logic                 := '0';
     signal s_t_byte                     : std_logic_vector(7 downto 0);
     signal s_t_count_transmitted_bit    : natural range 0 to 7      := 0;
@@ -172,17 +172,10 @@ begin
                 if s_t_current_bit = '0'
                 then
                     test3 <= '1';
-                end if;
-                if ps2_data = '0'
-                then
-                    test4 <= '1';
-                end if;
-
-                if s_t_current_bit = '1'
-                then
-                    ps2_data <= 'Z';
-                else
                     ps2_data <= '0';
+                else
+                    ps2_data <= '1';
+                    test4 <= '1';
                 end if;
             when idle =>
                 ps2_data <= 'Z';
@@ -196,10 +189,10 @@ begin
     begin
         if rising_edge(clk_main_in)
         then
+            s_t_end_transmitting <= '0'; -- Default value
+
             if (s_prev_ps2_clk_in /= ps2_clk_in and ps2_clk_in = '1') and s_ps2_state = transmitting
             then
-                s_t_end_transmitting <= '0'; -- Default value
-
                 case s_transmitting_state is
                     when idle =>
                         s_transmitting_state <= t_start_bit;

@@ -129,7 +129,10 @@ architecture Behavioral of top_host_receive is
         h_strobe_1,
         h_strobe_11,
         h_strobe_0,
-        d_waiting_new_byte
+        d_waiting_new_byte,
+        h_strobe_111,
+        h_strobe_00,
+        d_waiting_new_byte1
     );
 -- [--/--]
 
@@ -188,7 +191,7 @@ begin
         then
             case s_internal_state is
                 when h_strobe_1 =>
-                    d_byte_in <= "00010100";
+                    d_byte_in <= "00010001"; -- 11000100010
                     d_new_byte_in <= '1';
                     s_internal_state <= h_strobe_11;
                 when h_strobe_11 =>
@@ -200,11 +203,30 @@ begin
                     if (h_new_byte_o = '1')
                     then
                         s_leds <= h_byte_o;
+                        if d_busy_o = '0'
+                        then
+                            s_internal_state <= h_strobe_111;
+                        end if;
+                    end if;
+                when h_strobe_111 =>
+                    d_byte_in <= "10000001";
+                    d_new_byte_in <= '1';
+                    s_internal_state <= h_strobe_11;
+                when h_strobe_00 =>
+                    s_internal_state <= d_waiting_new_byte1;
+                when d_waiting_new_byte1 =>
+                    d_new_byte_in <= '0';
+                    if (h_new_byte_o = '1')
+                    then
+                        s_leds <= h_byte_o;
                     end if;
             end case;
 
             --------------------------------
-            d_led7 <= d_test1;
+            if d_test1 = '1'
+            then
+                d_led7 <= '1';
+            end if;
 
             if d_test2 = '1'
             then
@@ -242,10 +264,11 @@ begin
 
             if h_test4 = '1'
             then
-                h_led0 <= '0';
+                h_led0 <= '1';
             end if;
             --------------------------------
 
+            -- LED <= h_led0 & h_led1 & h_led2 & h_led3 & "0000";
             -- LED <= h_led0 & h_led1 & h_led2 & h_led3 & d_led4 & d_led5 & d_led6 & d_led7;
             LED <= s_leds;
         end if;
