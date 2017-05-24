@@ -81,7 +81,7 @@ architecture Behavioral of PS2_DEVICE is
     signal s_r_current_bit              : std_logic := 'Z';
     signal s_r_need_generate_ps2_clk    : std_logic := '0';
     signal s_r_data                     : std_logic_vector(10 downto 0); -- |{0}Start|{1-8}data|{9}P|{10}Stop|
-    signal s_r_count_tick               : natural range 0 to 4  := 0; -- Нужен, чтобы проверить наличие '0' на ps2_clk не менее 100мксек
+    signal s_r_count_tick               : natural range 0 to 5000  := 0; -- Нужен, чтобы проверить наличие '0' на ps2_clk не менее 100мксек
     signal s_r_count_received_bit       : natural range 0 to 11 := 0; -- Вместе с старт_бит, бит_паритета и стоп_битом.
 -- [--/--]
 
@@ -114,33 +114,26 @@ begin
     begin
         if rising_edge(clk_main_in)
         then
-            if s_r_clk_0_04MHz /= s_r_prev_clk_0_04MHz and s_r_clk_0_04MHz = '1'
+            if ps2_clk = '0' and s_ps2_state = idle and s_r_run_receiving = '0'
             then
-                if ps2_clk = '0'
+                if s_r_count_tick = 5000
                 then
-                    if s_r_count_tick = 4 and s_ps2_state = idle
-                    then
-                        s_r_run_receiving <= '1';
-                        s_r_count_tick <= 0;
-                    elsif s_r_count_tick < 4 and s_ps2_state = idle
-                    then
-                        s_r_count_tick <= s_r_count_tick + 1;
-                    end if;
-
-                    if s_ps2_state /= idle
-                    then
-                        s_r_count_tick <= 0;
-                    end if;
-
+                    s_r_run_receiving <= '1';
+                    s_r_count_tick <= 0;
+                elsif s_r_count_tick < 5000
+                then
+                    s_r_count_tick <= s_r_count_tick + 1;
                 end if;
+            else
+                s_r_count_tick <= 0;
             end if;
 
             if s_ps2_state = receiving
             then
                 s_r_run_receiving <= '0'; --reset
+                s_r_count_tick <= 0;
             end if;
 
-            s_r_prev_clk_0_04MHz <= s_r_clk_0_04MHz;
         end if;
     end process;
 -- [--/--]
@@ -168,15 +161,18 @@ begin
 
         case s_ps2_state is
             when receiving =>
-                ps2_data <= s_r_current_bit;
+                if s_r_current_bit = '0'
+                then
+                    ps2_data <= '0';
+                else
+                    ps2_data <= 'Z';
+                end if;
             when transmitting =>
                 if s_t_current_bit = '0'
                 then
-                    test3 <= '1';
                     ps2_data <= '0';
                 else
-                    ps2_data <= '1';
-                    test4 <= '1';
+                    ps2_data <= 'Z';
                 end if;
             when idle =>
                 ps2_data <= 'Z';
@@ -200,7 +196,6 @@ begin
                         s_t_need_generate_ps2_clk <= '1';
                         s_t_current_bit <= '1';
                     when t_start_bit =>
-                        test1 <= '1';
                         s_t_current_bit <= '0';
                         s_transmitting_state <= t_send_bits;
                     when t_send_bits =>
@@ -208,7 +203,6 @@ begin
                         then
                             s_t_current_bit <= s_t_byte(s_t_count_transmitted_bit);
                             s_t_count_transmitted_bit <= s_t_count_transmitted_bit + 1;
-                            test2 <= '1';
                         else
                             s_t_count_transmitted_bit <= 0;
                             s_t_current_bit <= not(s_t_byte(0) xor s_t_byte(1) xor s_t_byte(2) xor s_t_byte(3) xor s_t_byte(4) xor s_t_byte(5) xor s_t_byte(6) xor s_t_byte(7));
@@ -250,10 +244,15 @@ begin
                         then
                             if s_r_count_received_bit < 11
                             then
-                                s_r_data(s_r_count_received_bit) <= ps2_data;
+                                if ps2_data = '0'
+                                then
+                                    s_r_data(s_r_count_received_bit) <= '0';
+                                else
+                                    s_r_data(s_r_count_received_bit) <= '1';
+                                end if;
                                 s_r_count_received_bit <= s_r_count_received_bit + 1;
                             end if;
-                        elsif (ps2_clk /= s_r_prev_ps2_clk and ps2_clk = '1') and s_r_count_received_bit = 11
+                        elsif (ps2_clk /= s_r_prev_ps2_clk and ps2_clk /= '0') and s_r_count_received_bit = 11
                         then
                             if (s_r_data(0) = '0' and
                                 s_r_data(10) = '1' and
@@ -288,10 +287,14 @@ begin
         then
             if ps2_clk_in /= s_prev_ps2_clk_in and ps2_clk_in = '1'
             then
+                test1 <= '1';
                 if (s_r_need_generate_ps2_clk = '1' or s_t_need_generate_ps2_clk = '1')
                 then
+                    test2 <= '1';
                     s_need_generate_ps2_clk <= '1';
                 else
+                    test1 <= '0';
+                    test2 <= '0';
                     s_need_generate_ps2_clk <= '0';
                 end if;
             end if;

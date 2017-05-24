@@ -82,7 +82,7 @@ begin
                     --s_r_index_bit <= 0; -- Default value
                     --s_r_data <= x"00" & "000"; -- Default value
 
-                    s_t_current_bit <= 'Z';
+                    s_t_current_bit <= '1';
 
                     busy_o <= '0';
                     if s_t_prev_new_byte_in /= new_byte_in and new_byte_in = '1'
@@ -127,16 +127,20 @@ begin
                         --TODO: counter.
                         if s_t_counter_pre_start_bit < 10000
                         then
+                            test4 <= '1';
                             s_t_counter_pre_start_bit <= s_t_counter_pre_start_bit + 1;
                         else
                             s_t_counter_pre_start_bit <= 0;
                             s_state <= t_send_bits;
                         end if;
                     when t_send_bits =>
-                        if ps2_clk /= s_t_prev_ps2_clk and ps2_clk = '1' -- rising_edge
+                        test1 <= '1';
+                        if ps2_clk /= s_t_prev_ps2_clk and ps2_clk /= '0' -- rising_edge
                         then
+                            test2 <= '1';
                             if s_t_index_bit < 11
                             then
+                                test3 <= '1';
                                 s_t_current_bit <= s_t_data(s_t_index_bit);
                                 s_t_index_bit <= s_t_index_bit + 1;
                             end if;
@@ -147,10 +151,10 @@ begin
                             s_t_index_bit <= 0;
                         end if;
                     when t_send_ended =>
-                        if ps2_clk /= s_t_prev_ps2_clk and ps2_clk = '1'
+                        if ps2_clk /= s_t_prev_ps2_clk and ps2_clk /= '0'
                         then
                             s_state <= t_waiting_ack;
-                            s_t_current_bit <= 'Z';
+                            s_t_current_bit <= '1';
                         end if;
                     when t_waiting_ack =>
                         if ps2_clk /= s_t_prev_ps2_clk
@@ -177,7 +181,6 @@ begin
                                 then
                                     if ps2_data = '0'
                                     then
-                                        test1 <= '1';
                                         d_data0 <= '0';
                                     else
                                         d_data0 <= '1';
@@ -189,7 +192,6 @@ begin
                                 then
                                     if ps2_data = '0'
                                     then
-                                        test2 <= '1';
                                         d_data1 <= '0';
                                     else
                                         d_data1 <= '1';
@@ -201,7 +203,6 @@ begin
                                 then
                                     if ps2_data = '0'
                                     then
-                                        test3 <= '1';
                                         d_data2 <= '0';
                                     else
                                         d_data2 <= '1';
@@ -213,7 +214,6 @@ begin
                                 then
                                     if ps2_data = '0'
                                     then
-                                        test4 <= '1';
                                         d_data3 <= '0';
                                     else
                                         d_data3 <= '1';
@@ -286,7 +286,7 @@ begin
 -- [--/--]
 
     ps2_clk <= '0' when (s_state = t_pre_start_bit) else 'Z';
-    ps2_data <= s_t_current_bit;
+    ps2_data <= '0' when (s_t_current_bit = '0') else 'Z';
     --ps2_data <= 'Z';
     
 end architecture Behavioral;
